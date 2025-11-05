@@ -34,17 +34,58 @@ int main(int argc, char** argv) {
          << "  color \"green\"\n"
          << ")\n";
 
+	std::ostringstream robots;
+	std::vector<std::string> Colour;
+
+	Colour.push_back("blue");
+	Colour.push_back("yellow");
+	Colour.push_back("orange");
+	Colour.push_back("cyan");
+	Colour.push_back("magenta");
+	Colour.push_back("pink");
+	Colour.push_back("green");
+	Colour.push_back("red");
+	Colour.push_back("black");
+	Colour.push_back("white");
+
+	int num_robots;
+    nh.param("/NUM_ROBOTS", num_robots, 1);
+    double POS_X, POS_Y;
+	for(int ID = 0; ID < num_robots; ++ID){
+        std::stringstream ns;
+        ns << "/moveRobot" << ID;
+
+        nh.param(ns.str() + "/X_START", POS_X, 0.000);
+        nh.param(ns.str() + "/Y_START", POS_Y, 0.000);
+
+		robots	<< "pioneer2dx\n(\n"
+	  			<< "  name \" robot_" << ID << "\"\n"
+	  			<< "  pose [ " << POS_X << " " << POS_Y << " 0.000 0.000 ]\n"
+	 		 	<< "  color \"" + Colour[ID%Colour.size()] << "\"\n"
+	  			<< "  sicklaser\n  (\n"
+				<< "    ctrl \"lasernoise\"\n"
+				<< "    alwayson 1\n  )\n)\n";
+	}
+
     std::string content = buffer.str();
+
     size_t pos = content.find("#GOAL_ZONE#");
     if (pos != std::string::npos)
         content.replace(pos, 11, zone.str());
 	else
 		content.append("\n" + zone.str());
 
+    pos = content.find("#ROBOTS#");
+    if (pos != std::string::npos)
+        content.replace(pos, 11, robots.str());
+	else
+		content.append("\n" + robots.str());
+
     std::ofstream out(output_path.c_str());
+
     out << content;
     out.close();
 
-    ROS_INFO("Generated world at %s with goal zone at (%.2f, %.2f)", output_path.c_str(), X_GOAL, Y_GOAL);
+    ROS_INFO("Generated world at %s with goal zone at (%.2f, %.2f) and its %d robots", output_path.c_str(), X_GOAL, Y_GOAL, num_robots);
     return 0;
 }
