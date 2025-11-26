@@ -17,8 +17,8 @@
     <param name="ROBOT_ROL" value="0"/>   <!-- Leader -->
 
     <!-- Initial pose -->
-    <param name="X_START" value="7.0"/>
-    <param name="Y_START" value="-7.0"/>
+    <param name="X_START" value="4.0"/>
+    <param name="Y_START" value="-10.0"/>
 
     <!-- Behavior parameters -->
     <param name="CRIT_DIST" value="1.0"/>        <!-- 0.8–1.2 -->
@@ -52,8 +52,8 @@
     <param name="ID_LEADER" value="0"/>
 
     <!-- Initial pose -->
-    <param name="X_START" value="4.0"/>
-    <param name="Y_START" value="-10.0"/>
+    <param name="X_START" value="7.0"/>
+    <param name="Y_START" value="-7.0"/>
 
     <!-- Follower-specific -->
     <param name="DIST_LEADER" value="2.0"/>      <!-- 1.5–2.5 -->
