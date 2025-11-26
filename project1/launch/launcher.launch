@@ -1,3 +1,4 @@
+
 <launch>
   <node pkg="project1" type="talkerGoals" name="talkerGoals" output="screen">
     <param name="X_GOAL" value="8.0"/>
@@ -33,10 +34,6 @@
     <param name="ORI_ERROR" value="0.4"/>        <!-- 0.3–0.6 -->
     <param name="T_AVOID_OBS" value="2.0"/>      <!-- 1.0–3.0 -->
 
-    <!-- Potential Field weights (still needed even if ALGOR=1) -->
-    <param name="W_1" value="1.5"/>              <!-- 1–2 -->
-    <param name="W_2" value="3.0"/>              <!-- 2.5–4 -->
-
     <param name="T_WAIT" value="150"/>           <!-- 100–250 ms -->
   </node>
 
@@ -49,7 +46,7 @@
     <!-- Missions -->
     <param name="ALGOR" value="1"/>   
     <param name="ROBOT_ROL" value="1"/>   <!-- Follower -->
-    <param name="ID_LEADER" value="0"/>
+    <param name="ID_LEADER" value="0.0"/>
 
     <!-- Initial pose -->
     <param name="X_START" value="7.0"/>
@@ -70,10 +67,6 @@
 
     <param name="ORI_ERROR" value="0.4"/>
     <param name="T_AVOID_OBS" value="2.0"/>
-
-    <!-- Potential Field weights -->
-    <param name="W_1" value="1.5"/>
-    <param name="W_2" value="3.0"/>
 
     <param name="T_WAIT" value="150"/>
   </node>
