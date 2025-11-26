@@ -1,14 +1,15 @@
 #include "ros/ros.h"
 #include "std_msgs/Int32.h"
 #include "geometry_msgs/Twist.h"
-#include "sensor_msgs/LaserScan.h"
+#include "sensor_msgs/
+Scan.h"
 #include "nav_msgs/Odometry.h"
 #include <tf2/utils.h>
 #include <iostream>
 
 class MoveRobot {
 private:
-    ros::NodeHandle nh;//("~");
+    ros::NodeHandle nh;
     ros::Publisher vel_pub;
     ros::Subscriber odom_sub, laser_sub, goal_sub;
 
@@ -21,6 +22,8 @@ private:
 	bool isRotating = false;
 	ros::Time avoid_start_time;
 
+public:
+	int ALGOR;
 	double CRIT_DIST;
 	double D_OBJ;
 	double V_MAX_DES;
@@ -32,6 +35,7 @@ private:
 	double DIST_LEADER;
 	double W_1, W_2;
 	int ROBOT_ROL;
+	int ID_ROBOT;
 	int ID_LEADER;
 	int T_WAIT;
 	int rotate_dir = 0;
@@ -39,34 +43,16 @@ private:
 	RobotState state = moveTowardTarget;
 
 public:
-	MoveRobot(int id, int leader) {
-    	ros::NodeHandle pnh("~");   // private namespace
-
-		pnh.getParam("CRIT_DIST", CRIT_DIST);
-		pnh.getParam("D_OBJ", D_OBJ);
-		pnh.getParam("V_MAX_DES", V_MAX_DES);
-		pnh.getParam("V_MAX_ROT", V_MAX_ROT);
-		pnh.getParam("K_ROT_MIN", K_ROT_MIN);
-		pnh.getParam("K_ROT_MAX", K_ROT_MAX);
-		pnh.getParam("ORI_ERROR", ORI_ERROR);
-		pnh.getParam("T_AVOID_OBS", T_AVOID_OBS);
-		pnh.getParam("W_1", W_1);
-		pnh.getParam("W_2", W_2);
-		pnh.getParam("T_WAIT", T_WAIT);
-
-		// Only follower needs these
-		if (ROBOT_ROL == 1) {
-			pnh.getParam("DIST_LEADER", DIST_LEADER);
-			pnh.getParam("ID_LEADER", ID_LEADER);
-		}
-
+	MoveRobot(int id, int role) {
+		ROBOT_ROL = role;
+		ID_ROBOT = id;
 		std::stringstream ss;
 		ss << "robot_" << id;
 		std::string base = ss.str();
         vel_pub = nh.advertise<geometry_msgs::Twist>(base + "/cmd_vel", 10);
         odom_sub = nh.subscribe(base + "/odom", 10, &MoveRobot::odomCallback, this);
         laser_sub = nh.subscribe(base + "/base_scan_1", 10, &MoveRobot::laserCallback, this);
-		if(leader == 0)
+		if(ROBOT_ROL == 0)
         	goal_sub = nh.subscribe("talkerGoals/mapGoal", 10, &MoveRobot::goalCallback, this);
 		else{
 			std::stringstream ss2;
@@ -99,8 +85,7 @@ public:
 		goal = msg->pose.pose.position;
     }
 
-    void moveLoop(int ALGOR) {
-
+    void moveLoop() {
         ros::Rate rate(10);
 
 		bool bucle = true;
@@ -133,19 +118,20 @@ public:
 		double dx = goal.x - x;
         double dy = goal.y - y;
         double dist_to_goal = hypot(dx, dy);
-		
+
 		if(ROBOT_ROL == 1){
 			if(dist_to_goal < DIST_LEADER) {
+				ROS_INFO_THROTTLE(1.0, "Follower with id: %d is waiting because it's too close to the leader %d (distance: %lf)", ID_ROBOT, ID_LEADER, std::abs(dist_to_goal - DIST_LEADER));
 				cmd.linear.x = 0.0;
 				cmd.angular.z = 0.0;
 				vel_pub.publish(cmd);
-				return false;
+				return true;
 			}
 		}
 
 		// If we already arrived, we stop moving
 		if (dist_to_goal < D_OBJ) { 
-			ROS_INFO_THROTTLE(1.0, "Goal reached!");
+			ROS_INFO_THROTTLE(1.0, "Robot %d: Goal reached!", ID_ROBOT);
 			cmd.linear.x = 0.0;
 			cmd.angular.z = 0.0;
 			vel_pub.publish(cmd);
@@ -266,7 +252,6 @@ public:
 
 	bool potencial(){
 		geometry_msgs::Twist cmd;
-		double weight1, weight2;
 
 		if (laser_ranges.empty()) {
 		    ROS_WARN_THROTTLE(1.0, "Potencial: no enougth laser data (%d)", (int)laser_ranges.size());
@@ -284,10 +269,11 @@ public:
 		double dist_to_goal = hypot(dx, dy);
 		if(ROBOT_ROL == 1){
 			if(dist_to_goal < DIST_LEADER) {
+				ROS_INFO_THROTTLE(1.0, "Follower with id: %d is waiting because it's too close to the leader %d (distance: %lf)", ID_ROBOT, ID_LEADER, std::abs(dist_to_goal - DIST_LEADER));
 				cmd.linear.x = 0.0;
 				cmd.angular.z = 0.0;
 				vel_pub.publish(cmd);
-				return false;
+				return true;
 			}
 		}
 
@@ -306,12 +292,12 @@ public:
 		std::pair<double, geometry_msgs::Twist> aviod_obstacles = obstacle_vector();
 
 		// Time to calculate the weight for the go to goal vector
-		weight2 = aviod_obstacles.first;
-		weight1 = 1.0 - weight2;
+		W_2 = aviod_obstacles.first;
+		W_1 = 1.0 - W_2;
 
 		// Finally we calculate the command vector
-		cmd.linear.x = weight1 * go_to_goal.second.linear.x + weight2 * aviod_obstacles.second.linear.x;
-		cmd.angular.z = weight1 * go_to_goal.second.angular.z + weight2 * aviod_obstacles.second.angular.z;
+		cmd.linear.x = W_1 * go_to_goal.second.linear.x + W_2 * aviod_obstacles.second.linear.x;
+		cmd.angular.z = W_1 * go_to_goal.second.angular.z + W_2 * aviod_obstacles.second.angular.z;
 
 		// Clamp linear velocity to prevent backward motion
 		if (cmd.linear.x < 0.0)
@@ -334,8 +320,8 @@ public:
 		double dist_to_goal = hypot(dx, dy);
 
 		// If we already arrived, we stop moving
-		if (dist_to_goal < D_OBJ && dx < 1 && dy < 1) {  //(D_OBJ)
-		    ROS_INFO_THROTTLE(1.0, "Goal reached!");
+		if (dist_to_goal < D_OBJ && dx < 1 && dy < 1) {
+			ROS_INFO_THROTTLE(1.0, "Robot %d: Goal reached!", ID_ROBOT);
 		    cmd.linear.x = 0.0;
 		    cmd.angular.z = 0.0;
 		    return std::make_pair(false, cmd);
@@ -418,10 +404,27 @@ int main(int argc, char** argv) {
     ros::init(argc, argv, "moveRobot");
 	ros::NodeHandle node_obj("~");
 	int ALGOR, ID_ROBOT, ROBOT_ROL;
-	node_obj.getParam("ALGOR", ALGOR);
 	node_obj.getParam("ROBOT_ROL", ROBOT_ROL);
-	if(ROBOT_ROL == 1) node_obj.getParam("DIST_LEADER", DIST_LEADER);
 	node_obj.getParam("ID_ROBOT", ID_ROBOT);
+
     MoveRobot robot(ID_ROBOT, ROBOT_ROL);
-    robot.moveLoop(ALGOR);
+
+	node_obj.getParam("ALGOR", robot.ALGOR);
+
+	node_obj.getParam("CRIT_DIST", robot.CRIT_DIST);
+	node_obj.getParam("D_OBJ", robot.D_OBJ);
+	node_obj.getParam("V_MAX_DES", robot.V_MAX_DES);
+	node_obj.getParam("V_MAX_ROT", robot.V_MAX_ROT);
+	node_obj.getParam("K_ROT_MIN", robot.K_ROT_MIN);
+	node_obj.getParam("K_ROT_MAX", robot.K_ROT_MAX);
+	node_obj.getParam("ORI_ERROR", robot.ORI_ERROR);
+	node_obj.getParam("T_AVOID_OBS", robot.T_AVOID_OBS);
+	node_obj.getParam("T_WAIT", robot.T_WAIT);
+
+	// Only follower needs these
+	if (ROBOT_ROL == 1) {
+		node_obj.getParam("DIST_LEADER", robot.DIST_LEADER);
+		node_obj.getParam("ID_LEADER", robot.ID_LEADER);
+	}
+    robot.moveLoop();
 }
