@@ -133,6 +133,15 @@ public:
 		double dx = goal.x - x;
         double dy = goal.y - y;
         double dist_to_goal = hypot(dx, dy);
+		
+		if(ROBOT_ROL == 1){
+			if(dist_to_goal < DIST_LEADER) {
+				cmd.linear.x = 0.0;
+				cmd.angular.z = 0.0;
+				vel_pub.publish(cmd);
+				return false;
+			}
+		}
 
 		// If we already arrived, we stop moving
 		if (dist_to_goal < D_OBJ) { 
@@ -268,6 +277,19 @@ public:
 			ROS_WARN_THROTTLE(1.0, "Potencial: invalid goal values (%.2f, %.2f)", goal.x, goal.y);
 			return true;
 		}
+		
+
+		double dx = goal.x - x;
+		double dy = goal.y - y;
+		double dist_to_goal = hypot(dx, dy);
+		if(ROBOT_ROL == 1){
+			if(dist_to_goal < DIST_LEADER) {
+				cmd.linear.x = 0.0;
+				cmd.angular.z = 0.0;
+				vel_pub.publish(cmd);
+				return false;
+			}
+		}
 
 		// First we calculate the go to goal vector
 		std::pair<bool, geometry_msgs::Twist> go_to_goal = goal_vector();
@@ -398,6 +420,7 @@ int main(int argc, char** argv) {
 	int ALGOR, ID_ROBOT, ROBOT_ROL;
 	node_obj.getParam("ALGOR", ALGOR);
 	node_obj.getParam("ROBOT_ROL", ROBOT_ROL);
+	if(ROBOT_ROL == 1) node_obj.getParam("DIST_LEADER", DIST_LEADER);
 	node_obj.getParam("ID_ROBOT", ID_ROBOT);
     MoveRobot robot(ID_ROBOT, ROBOT_ROL);
     robot.moveLoop(ALGOR);
